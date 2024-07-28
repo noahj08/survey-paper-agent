@@ -14,11 +14,37 @@ def setup_dirs():
     os.mkdir(folder_arxiv_cits)
     time.sleep(1)
 
-# TODO enable user to get only semantically similar chunks to topic
-def get_initial_context(topic, summaries):
-    return summaries.to_string()
+def get_initial_context(topic, summaries, relevant_only=False, threshold=0.7):
+    """
+    Get the initial context from summaries. If relevant_only is True, only get semantically similar chunks to the topic.
 
-def write_survey_paper(topic, topic_description, chatbot, folder_arxiv_pdfs="arxiv_pdfs", filder_arxiv_cits='arxiv_citations'):
+    Args:
+        topic (str): The topic to compare against the summaries.
+        summaries (pd.DataFrame): DataFrame containing the summaries.
+        relevant_only (bool): Flag to filter summaries by semantic similarity.
+        threshold (float): Cosine similarity threshold to consider a chunk as similar.
+
+    Returns:
+        str: Concatenated string of (optionally filtered) summaries.
+    """
+    if not relevant_only:
+        return summaries.to_string()
+
+    topic_embedding = model.encode(topic, convert_to_tensor=True)
+    similar_chunks = []
+
+    for index, row in summaries.iterrows():
+        for col in summaries.columns:
+            summary = row[col]
+            summary_embedding = model.encode(summary, convert_to_tensor=True)
+            similarity = util.pytorch_cos_sim(topic_embedding, summary_embedding).item()
+            if similarity >= threshold:
+                similar_chunks.append(summary)
+
+    return ' '.join(similar_chunks)
+
+
+def write_survey_paper(topic, topic_description, chatbot, folder_arxiv_pdfs="arxiv_pdfs", filder_arxiv_cits='arxiv_citations'): 
     papers, summaries = summarize_all_papers(folder_arxiv_pdfs, folder_arxiv_cits, api_key, initial_query, 5, 5)
     papers.to_csv(f"papers_df_{initial_query}.csv", index=False)
     summaries.to_csv(f"paper_summaries_{initial_query}.csv", index=False)
@@ -26,11 +52,11 @@ def write_survey_paper(topic, topic_description, chatbot, folder_arxiv_pdfs="arx
     context = get_initial_context(topic, summaries)
     df_subtopics = get_concept_hierarchy(initial_query, description, context)
     
-    outline = write_outline(df_subsubtopics, summaries)
-    citations = get_citations(outline, summaries)
-    paper = write_paper(outline, citations, summaries)
-    paper = revise_paper(paper, outline, summaries)
-    decision, reviews = peer_review(paper, outline, summaries)
+    #outline = write_outline(df_subsubtopics, summaries)
+    #citations = get_citations(outline, summaries)
+    #paper = write_paper(outline, citations, summaries)
+    #paper = revise_paper(paper, outline, summaries)
+    #decision, reviews = peer_review(paper, outline, summaries)
 
 
 if __name__ == "__main__":
